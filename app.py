@@ -7,7 +7,7 @@ import random
 # 웹페이지 기본 설정
 st.set_page_config(page_title="청소년을 위한 맞춤 식단 추천", page_icon="🥗", layout="centered")
 
-# 상단 UI (보내주신 사진 스타일 반영)
+# 상단 UI
 st.markdown("<h1 style='text-align: center;'>청소년을 위한 맞춤 식단 추천</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: gray;'>지친 청소년들의 현실적인 식습관 고민을 해결해 주는 스마트 푸드 가이드입니다!</p>", unsafe_allow_html=True)
 st.markdown("---")
@@ -27,13 +27,15 @@ category = st.selectbox(
 
 # 2. 카테고리별 맞춤 데이터 정의
 condition = {}
+is_free_mode = False
 
 if "선택 안 함" in category:
+    is_free_mode = True
     condition = {
-        "name": "자유로운 메뉴 추천",
+        "name": "자유로운 전체 메뉴 추천",
         "avoid": [],
-        "tag": "건강식 영양",
-        "reason": "특별한 제한 없이 제공하는 추천 식단"
+        "tag": "",  # 태그 없음
+        "reason": "특별한 제한이나 카테고리 없이 사용자가 원하는 재료 기반으로 추천"
     }
 elif "식곤증" in category:
     condition = {
@@ -66,7 +68,7 @@ elif "대체제" in category:
             "reason": "고열량 음식을 대체할 수 있는 영양 균형 식단"
         }
 
-# 재료 입력창 (안내 멘트 추가)
+# 재료 입력창
 st.markdown("🥬 **먹고 싶은 재료나 음식을 입력하세요** (먹고 싶은 게 없다면 '없음' 입력)")
 if "대체제" not in category:
     user_input = st.text_input("재료 입력", "두부", label_visibility="collapsed")
@@ -77,15 +79,27 @@ st.markdown("")
 
 # 3. 크롤링 및 추천 실행 버튼
 if st.button("🔍 맞춤형 식단 추천받기"):
-    # '없음'을 입력했거나 빈칸인 경우 랜덤 추천을 위한 키워드 풀 설정
-    if not user_input or user_input.strip() in ["없음", "없다", "몰라", "추천해줘"]:
-        random_keywords = ["건강식", "샐러드", "다이어트", "간단요리", "채소요리", "단백질식단"]
-        chosen_keyword = random.choice(random_keywords)
-        search_keyword = f"{chosen_keyword} {condition['tag']}"
-        is_random_mode = True
+    # '선택 안 함' 모드일 때 처리
+    if is_free_mode:
+        if not user_input or user_input.strip() in ["없음", "없다", "몰라", "추천해줘"]:
+            # 완전히 랜덤한 음식 키워드 풀에서 무작위 선택
+            random_foods = ["김치찌개", "떡볶이", "파스타", "치킨", "볶음밥", "제육볶음", "카레", "짜장면", "라면", "토스트", "돈가스", "삼겹살"]
+            chosen_keyword = random.choice(random_foods)
+            search_keyword = chosen_keyword
+            is_random_mode = True
+        else:
+            search_keyword = user_input
+            is_random_mode = False
     else:
-        search_keyword = f"{user_input} {condition['tag']}"
-        is_random_mode = False
+        # 다른 카테고리일 때 ('없음' 입력 시 처리 포함)
+        if not user_input or user_input.strip() in ["없음", "없다", "몰라", "추천해줘"]:
+            random_keywords = ["간단요리", "인기요리", "집밥", "한식", "든든한메뉴"]
+            chosen_keyword = random.choice(random_keywords)
+            search_keyword = f"{chosen_keyword} {condition['tag']}"
+            is_random_mode = True
+        else:
+            search_keyword = f"{user_input} {condition['tag']}"
+            is_random_mode = False
 
     base_url = "https://www.10000recipe.com/recipe/list.html?q="
     site_root = "https://www.10000recipe.com"
@@ -97,12 +111,20 @@ if st.button("🔍 맞춤형 식단 추천받기"):
         soup = BeautifulSoup(response.text, 'html.parser')
         recipe_list = soup.select('ul.common_sp_list_ul li.common_sp_list_li')
 
-        if is_random_mode:
-            st.markdown(f"### 🎲 랜덤 추천 결과: {condition['name']}")
-            st.info(f"💡 **안내:** 먹고 싶은 재료를 적지 않아, AI가 추천하는 건강 테마 속에서 랜덤으로 메뉴를 골라왔어요!")
+        if is_free_mode:
+            if is_random_mode:
+                st.markdown(f"### 🎲 완전 랜덤 추천 결과 ('{search_keyword}')")
+                st.info(f"💡 **안내:** 고민과 재료를 모두 비워두셔서, 완전히 무작위로 인기 메뉴를 골라왔어요!")
+            else:
+                st.markdown(f"### 🔍 검색 결과: '{user_input}'")
+                st.info(f"💡 **안내:** 특별한 제한 없이 입력하신 재료를 바탕으로 추천합니다.")
         else:
-            st.markdown(f"### 🔍 분석 결과: {condition['name']}")
-            st.info(f"💡 **식품영양학적 추천 원리:** {condition['reason']}")
+            if is_random_mode:
+                st.markdown(f"### 🎲 랜덤 추천 결과: {condition['name']}")
+                st.info(f"💡 **안내:** 재료를 적지 않아, 해당 카테고리 내에서 무작위로 메뉴를 골라왔어요!")
+            else:
+                st.markdown(f"### 🔍 분석 결과: {condition['name']}")
+                st.info(f"💡 **식품영양학적 추천 원리:** {condition['reason']}")
         
         st.markdown("---")
 
@@ -115,7 +137,7 @@ if st.button("🔍 맞춤형 식단 추천받기"):
                 title = title_tag.get_text().strip()
                 link = site_root + link_tag['href']
                 
-                # 필터링 로직
+                # 필터링 로직 (avoid 목록에 있는 단어가 포함되어 있으면 제외)
                 is_safe = True
                 for word in condition['avoid']:
                     if word in title:
