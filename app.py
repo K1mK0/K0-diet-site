@@ -25,7 +25,7 @@ category = st.selectbox(
     label_visibility="collapsed"
 )
 
-# 2. 카테고리별 데이터 정의 (영양학적 설명 구체화)
+# 2. 카테고리별 데이터 정의
 condition = {}
 is_free_mode = False
 
@@ -40,16 +40,16 @@ if "선택 안 함" in category:
 elif "식곤증" in category:
     condition = {
         "name": "식곤증 예방 및 집중력 유지 식단",
-        "avoid": ['라면', '면', '짜장면', '피자', '햄버거', '빵', '과자', '설탕', '떡볶이', '초콜릿', '초코', '시럽'],
+        "avoid": ['라면', '면', '짜장면', '피자', '햄버거', '빵', '과자', '설탕', '떡볶이', '초콜릿', '초코', '시럽', '마라탕', '마라'],
         "random_pool": ["닭가슴살 샐러드", "소고기 샐러드", "연어구이", "샌드위치", "단호박죽", "스크램블에그"],
-        "science_reason": "정제 탄수화물과 설탕은 혈당을 급격히 올려(혈당 스파이크) 뇌에 피로물질을 쌓고 졸음을 유발합니다. 이 메뉴는 **단백질과 식이섬유가 풍부해 혈당을 완만하게 유지**시켜 오후 수업 시간의 졸음을 막아줍니다."
+        "science_reason": "정제 탄수화물과 당분, 고지방식은 혈당을 급격히 올려(혈당 스파이크) 뇌에 피로물질을 쌓고 졸음을 유발합니다. 단백질과 식이섬유가 풍부한 식단이 졸음을 막아줍니다."
     }
 elif "다이어트" in category:
     condition = {
         "name": "칼로리 부담 없는 건강 다이어트 식단",
         "avoid": ['튀김', '삼겹살', '버터', '마요네즈', '설탕', '떡볶이', '크림', '초콜릿', '초코', '시럽'],
         "random_pool": ["두부스테이크", "곤약볶음면", "닭가슴살볶음밥", "오이샐러드", "버섯볶음", "계란찜"],
-        "science_reason": "포화지방과 단순당은 체내 지방 축적을 촉진합니다. 이 메뉴는 **지방과 당류를 최소화하고 포만감을 오래 유지하는 고단백·저칼로리 식재료**를 활용해 건강한 체중 관리를 돕습니다."
+        "science_reason": "포화지방과 단순당은 체내 지방 축적을 촉진합니다. 지방과 당류를 최소화하고 포만감을 오래 유지하는 고단백·저칼로리 식품 중심의 식단입니다."
     }
 elif "대체제" in category:
     craving = st.text_input("😋 지금 어떤 음식을 먹고 싶나요? (예: 떡볶이, 치킨, 피자, 초콜릿)")
@@ -58,7 +58,7 @@ elif "대체제" in category:
             "name": f"'{craving}' 건강 대체 레시피 추천",
             "avoid": ['밀가루', '설탕', '트랜스지방'],
             "random_pool": [f"다이어트 {craving}", f"저당 {craving}", "두부요리", "오트밀요리", "통밀빵샌드위치"],
-            "science_reason": f"고열량·고당류인 '{craving}'의 유해한 성분(밀가루, 설탕 등)을 배제하고, **대체 식재료(두부, 통밀, 저당 소스 등)를 사용하여 칼로리와 당 부담을 대폭 낮춘** 건강 지향식입니다."
+            "science_reason": f"고열량·고당류인 '{craving}'의 유해한 성분을 배제하고, 대체 식재료(두부, 통밀 등)를 사용하여 칼로리 부담을 낮춘 건강 지향식입니다."
         }
     else:
         condition = {
@@ -80,64 +80,73 @@ st.markdown("")
 # 3. 크롤링 및 추천 실행 버튼
 if st.button("🔍 맞춤형 식단 추천받기"):
     
-    if not user_input or user_input.strip() in ["없음", "없다", "몰라", "추천해줘"]:
-        search_keyword = random.choice(condition["random_pool"])
-        is_random_mode = True
+    # 식곤증 카테고리에서 마라탕, 라면 등 부적절한 고자극 음식을 입력했을 때의 예외 처리
+    is_bad_for_sleepy = False
+    if "식곤증" in category and user_input:
+        heavy_foods = ['마라탕', '마라', '라면', '짜장면', '짬뽕', '피자', '햄버거', '치킨', '튀김', '떡볶이']
+        for hf in heavy_foods:
+            if hf in user_input.strip():
+                is_bad_for_sleepy = True
+                break
+
+    if is_bad_for_sleepy:
+        st.markdown(f"### ⚠️ 안내: '{user_input}'(은)는 식곤증에 부적합합니다")
+        st.error(f"마라탕이나 고자극·고지방·정제 탄수화물 음식은 소화 과정에서 많은 에너지를 소모하고 **혈당 스파이크를 유발해 심한 졸음과 식곤증을 극대화**시킵니다. 😢")
+        st.info("💡 **추천 제안:** 식곤증을 줄이려면 해당 메뉴보다는 **단백질과 채소가 중심이 되는 가벼운 샐러드나 닭가슴살, 두부 요리**를 드셔보는 것은 어떨까요? 재료 칸에 '없음'을 입력하고 추천을 받아보세요!")
     else:
-        search_keyword = user_input.strip()
-        is_random_mode = False
-
-    base_url = "https://www.10000recipe.com/recipe/list.html?q="
-    encoded_query = urllib.parse.quote(search_keyword)
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        response = requests.get(base_url + encoded_query, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        recipe_list = soup.select('ul.common_sp_list_ul li.common_sp_list_li')
-
-        # 화면 안내 문구 출력
-        if is_free_mode:
-            if is_random_mode:
-                st.markdown(f"### 🎲 랜덤 추천 메뉴: '{search_keyword}'")
-            else:
-                st.markdown(f"### 🔍 검색 결과: '{search_keyword}'")
+        if not user_input or user_input.strip() in ["없음", "없다", "몰라", "추천해줘"]:
+            search_keyword = random.choice(condition["random_pool"])
+            is_random_mode = True
         else:
-            if is_random_mode:
-                st.markdown(f"### 🎲 추천 결과: {condition['name']} (선택된 메뉴: {search_keyword})")
+            search_keyword = user_input.strip()
+            is_random_mode = False
+
+        base_url = "https://www.10000recipe.com/recipe/list.html?q="
+        encoded_query = urllib.parse.quote(search_keyword)
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        try:
+            response = requests.get(base_url + encoded_query, headers=headers)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            recipe_list = soup.select('ul.common_sp_list_ul li.common_sp_list_li')
+
+            if is_free_mode:
+                if is_random_mode:
+                    st.markdown(f"### 🎲 랜덤 추천 메뉴: '{search_keyword}'")
+                else:
+                    st.markdown(f"### 🔍 검색 결과: '{search_keyword}'")
             else:
-                st.markdown(f"### 🔍 검색 결과: {condition['name']} ('{search_keyword}' 검색)")
-        
-        # 💡 왜 이 식단이 도움이 되는지 과학적/영양학적 이유를 명확하게 상단에 박스로 고정 출력
-        st.info(f"💡 **왜 이 식단이 도움이 될까요?**\n\n{condition['science_reason']}")
-        st.markdown("---")
-
-        count = 0
-        for item in recipe_list:
-            title_tag = item.select_one('div.common_sp_caption_tit')
-            link_tag = item.select_one('a.common_sp_link')
+                if is_random_mode:
+                    st.markdown(f"### 🎲 추천 결과: {condition['name']} (선택된 메뉴: {search_keyword})")
+                else:
+                    st.markdown(f"### 🔍 검색 결과: {condition['name']} ('{search_keyword}' 검색)")
             
-            if title_tag and link_tag:
-                title = title_tag.get_text().strip()
-                link = "https://www.10000recipe.com" + link_tag['href']
-                
-                # 필터링 로직 (기피 식재료가 타이틀에 포함되어 있는지 확인)
-                is_safe = True
-                for word in condition['avoid']:
-                    if word in title:
-                        is_safe = False
-                        break
-                
-                # 안전한 레시피인 경우에만 출력
-                if is_safe:
-                    st.success(f"✅ **[추천 레시피] {title}**")
-                    st.markdown(f"🔗 [레시피 보러 가기]({link})")
-                    st.markdown("---")
-                    count += 1
-        
-        # 검색 결과가 하나도 없을 때 명확하게 안내
-        if count == 0:
-            st.warning(f"⚠️ '{search_keyword}'(은)는 선택하신 고민 카테고리의 건강 기준(유해 성분 회피)에 부합하는 안전한 레시피를 찾지 못했습니다. 다른 재료를 입력해 보세요!")
+            st.info(f"💡 **왜 이 식단이 도움이 될까요?**\n\n{condition['science_reason']}")
+            st.markdown("---")
 
-    except Exception as e:
-        st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
+            count = 0
+            for item in recipe_list:
+                title_tag = item.select_one('div.common_sp_caption_tit')
+                link_tag = item.select_one('a.common_sp_link')
+                
+                if title_tag and link_tag:
+                    title = title_tag.get_text().strip()
+                    link = "https://www.10000recipe.com" + link_tag['href']
+                    
+                    is_safe = True
+                    for word in condition['avoid']:
+                        if word in title:
+                            is_safe = False
+                            break
+                    
+                    if is_safe:
+                        st.success(f"✅ **[추천 레시피] {title}**")
+                        st.markdown(f"🔗 [레시피 보러 가기]({link})")
+                        st.markdown("---")
+                        count += 1
+            
+            if count == 0:
+                st.warning(f"⚠️ '{search_keyword}'(은)는 선택하신 고민 카테고리의 건강 기준에 부합하는 안전한 레시피를 찾지 못했습니다. 식곤증을 줄이기 위해 단백질이나 채소 위주의 다른 재료를 입력해 보세요!")
+
+        except Exception as e:
+            st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
