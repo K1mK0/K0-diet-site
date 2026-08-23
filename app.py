@@ -47,18 +47,19 @@ elif "식곤증" in category:
 elif "다이어트" in category:
     condition = {
         "name": "칼로리 부담 없는 건강 다이어트 식단",
-        "avoid": ['튀김', '삼겹살', '버터', '마요네즈', '설탕', '떡볶이', '크림', '초콜릿', '초코', '시럽'],
+        "avoid": ['튀김', '삼겹살', '버터', '마요не즈', '설탕', '크림', '초콜릿', '초코', '시럽'],
         "random_pool": ["두부스테이크", "곤약볶음면", "닭가슴살볶음밥", "오이샐러드", "버섯볶음", "계란찜"],
-        "science_reason": "포화지방과 단순당은 체내 지방 축적을 촉진합니다. 지방과 당류를 최소화하고 포만감을 오래 유지하는 고단백·저칼로리 식품 중심의 식단입니다."
+        "science_reason": "포화지방과 단순당은 체내 지방 축적을 촉진합니다. 지방과 당류를 줄이고, 곤약면이나 두부면 등 대체 식재료를 활용해 칼로리를 낮춘 건강 다이어트 식단입니다."
     }
 elif "대체제" in category:
     craving = st.text_input("😋 지금 어떤 음식을 먹고 싶나요? (예: 떡볶이, 치킨, 피자, 초콜릿)")
     if craving:
         condition = {
             "name": f"'{craving}' 건강 대체 레시피 추천",
-            "avoid": ['밀가루', '설탕', '트랜스지방'],
-            "random_pool": [f"다이어트 {craving}", f"저당 {craving}", "두부요리", "오트밀요리", "통밀빵샌드위치"],
-            "science_reason": f"고열량·고당류인 '{craving}'의 유해한 성분을 배제하고, 대체 식재료(두부, 통밀 등)를 사용하여 칼로리 부담을 낮춘 건강 지향식입니다."
+            # 대체제일 때 일반 설탕, 밀가루 등이 들어간 원본 레시피는 강력하게 차단
+            "avoid": ['설탕', '밀가루', '시럽', '일반'],
+            "random_pool": [f"다이어트 {craving}", f"저당 {craving}", f"키토 {craving}"],
+            "science_reason": f"고열량·고당류인 '{craving}'의 유해한 성분(설탕, 밀가루 등)을 배제하고, 저당·두부·오트밀 등 건강한 대체 식재료를 사용하여 칼로리 부담을 낮춘 대체 레시피입니다."
         }
     else:
         condition = {
@@ -80,7 +81,7 @@ st.markdown("")
 # 3. 크롤링 및 추천 실행 버튼
 if st.button("🔍 맞춤형 식단 추천받기"):
     
-    # 식곤증 카테고리에서 마라탕, 라면 등 부적절한 고자극 음식을 입력했을 때의 예외 처리
+    # 식곤증 카테고리 예외 처리
     is_bad_for_sleepy = False
     if "식곤증" in category and user_input:
         heavy_foods = ['마라탕', '마라', '라면', '짜장면', '짬뽕', '피자', '햄버거', '치킨', '튀김', '떡볶이']
@@ -92,13 +93,19 @@ if st.button("🔍 맞춤형 식단 추천받기"):
     if is_bad_for_sleepy:
         st.markdown(f"### ⚠️ 안내: '{user_input}'(은)는 식곤증에 부적합합니다")
         st.error(f"마라탕이나 고자극·고지방·정제 탄수화물 음식은 소화 과정에서 많은 에너지를 소모하고 **혈당 스파이크를 유발해 심한 졸음과 식곤증을 극대화**시킵니다. 😢")
-        st.info("💡 **추천 제안:** 식곤증을 줄이려면 해당 메뉴보다는 **단백질과 채소가 중심이 되는 가벼운 샐러드나 닭가슴살, 두부 요리**를 드셔보는 것은 어떨까요? 재료 칸에 '없음'을 입력하고 추천을 받아보세요!")
+        st.info("💡 **추천 제안:** 식곤증을 줄이려면 해당 메뉴보다는 **단백질과 채소가 중심이 되는 가벼운 샐러드나 닭가슴살, 두부 요리**를 드셔보는 것은 어떨까요?")
     else:
         if not user_input or user_input.strip() in ["없음", "없다", "몰라", "추천해줘"]:
             search_keyword = random.choice(condition["random_pool"])
             is_random_mode = True
         else:
-            search_keyword = user_input.strip()
+            # 핵심 수정: 다이어트나 대체제 카테고리일 때 검색어에 '저당' 또는 '다이어트'를 자동 조합하여 대체 레시피 유도
+            if "다이어트" in category:
+                search_keyword = f"다이어트 {user_input.strip()}"
+            elif "대체제" in category:
+                search_keyword = f"저당 {user_input.strip()}"
+            else:
+                search_keyword = user_input.strip()
             is_random_mode = False
 
         base_url = "https://www.10000recipe.com/recipe/list.html?q="
@@ -119,7 +126,7 @@ if st.button("🔍 맞춤형 식단 추천받기"):
                 if is_random_mode:
                     st.markdown(f"### 🎲 추천 결과: {condition['name']} (선택된 메뉴: {search_keyword})")
                 else:
-                    st.markdown(f"### 🔍 검색 결과: {condition['name']} ('{search_keyword}' 검색)")
+                    st.markdown(f"### 🔍 검색 결과: {condition['name']} ('{user_input.strip()}' 대체 레시피)")
             
             st.info(f"💡 **왜 이 식단이 도움이 될까요?**\n\n{condition['science_reason']}")
             st.markdown("---")
@@ -145,8 +152,9 @@ if st.button("🔍 맞춤형 식단 추천받기"):
                         st.markdown("---")
                         count += 1
             
+            # 필터링을 거쳐 살아남은 결과가 없으면 명확하게 경고 문구 출력
             if count == 0:
-                st.warning(f"⚠️ '{search_keyword}'(은)는 선택하신 고민 카테고리의 건강 기준에 부합하는 안전한 레시피를 찾지 못했습니다. 식곤증을 줄이기 위해 단백질이나 채소 위주의 다른 재료를 입력해 보세요!")
+                st.warning(f"⚠️ '{user_input.strip()}'과(와) 관련된 시중의 일반적인 고열량 레시피는 건강 기준에 부합하지 않아 모두 제외되었습니다. 만개의레시피 플랫폼 내에 마땅한 저당/대체 레시피가 등록되어 있지 않을 수 있습니다. 다른 음식을 입력해 보세요!")
 
         except Exception as e:
             st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
