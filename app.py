@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
+import random
 
 # 웹페이지 기본 설정
 st.set_page_config(page_title="청소년을 위한 맞춤 식단 추천", page_icon="🥗", layout="centered")
@@ -11,7 +12,7 @@ st.markdown("<h1 style='text-align: center;'>청소년을 위한 맞춤 식단 �
 st.markdown("<p style='text-align: center; color: gray;'>지친 청소년들의 현실적인 식습관 고민을 해결해 주는 스마트 푸드 가이드입니다!</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 1. 고민 카테고리 선택 (선택 안 함 옵션 추가)
+# 1. 고민 카테고리 선택
 st.markdown("💡 **해결하고 싶은 고민 선택**")
 category = st.selectbox(
     "고민 선택",
@@ -32,7 +33,7 @@ if "선택 안 함" in category:
         "name": "자유로운 메뉴 추천",
         "avoid": [],
         "tag": "건강식 영양",
-        "reason": "특별한 제한 없이 입력한 재료를 바탕으로 제공하는 추천 식단"
+        "reason": "특별한 제한 없이 제공하는 추천 식단"
     }
 elif "식곤증" in category:
     condition = {
@@ -65,8 +66,8 @@ elif "대체제" in category:
             "reason": "고열량 음식을 대체할 수 있는 영양 균형 식단"
         }
 
-# 재료 입력창
-st.markdown("🥬 **먹고 싶은 재료나 음식을 입력하세요**")
+# 재료 입력창 (안내 멘트 추가)
+st.markdown("🥬 **먹고 싶은 재료나 음식을 입력하세요** (먹고 싶은 게 없다면 '없음' 입력)")
 if "대체제" not in category:
     user_input = st.text_input("재료 입력", "두부", label_visibility="collapsed")
 else:
@@ -76,51 +77,62 @@ st.markdown("")
 
 # 3. 크롤링 및 추천 실행 버튼
 if st.button("🔍 맞춤형 식단 추천받기"):
-    if not user_input and "대체제" not in category:
-        st.warning("재료나 음식을 입력해주세요!")
+    # '없음'을 입력했거나 빈칸인 경우 랜덤 추천을 위한 키워드 풀 설정
+    if not user_input or user_input.strip() in ["없음", "없다", "몰라", "추천해줘"]:
+        random_keywords = ["건강식", "샐러드", "다이어트", "간단요리", "채소요리", "단백질식단"]
+        chosen_keyword = random.choice(random_keywords)
+        search_keyword = f"{chosen_keyword} {condition['tag']}"
+        is_random_mode = True
     else:
         search_keyword = f"{user_input} {condition['tag']}"
-        base_url = "https://www.10000recipe.com/recipe/list.html?q="
-        site_root = "https://www.10000recipe.com"
-        encoded_query = urllib.parse.quote(search_keyword)
-        headers = {"User-Agent": "Mozilla/5.0"}
+        is_random_mode = False
 
-        try:
-            response = requests.get(base_url + encoded_query, headers=headers)
-            soup = BeautifulSoup(response.text, 'html.parser')
-            recipe_list = soup.select('ul.common_sp_list_ul li.common_sp_list_li')
+    base_url = "https://www.10000recipe.com/recipe/list.html?q="
+    site_root = "https://www.10000recipe.com"
+    encoded_query = urllib.parse.quote(search_keyword)
+    headers = {"User-Agent": "Mozilla/5.0"}
 
+    try:
+        response = requests.get(base_url + encoded_query, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        recipe_list = soup.select('ul.common_sp_list_ul li.common_sp_list_li')
+
+        if is_random_mode:
+            st.markdown(f"### 🎲 랜덤 추천 결과: {condition['name']}")
+            st.info(f"💡 **안내:** 먹고 싶은 재료를 적지 않아, AI가 추천하는 건강 테마 속에서 랜덤으로 메뉴를 골라왔어요!")
+        else:
             st.markdown(f"### 🔍 분석 결과: {condition['name']}")
             st.info(f"💡 **식품영양학적 추천 원리:** {condition['reason']}")
-            st.markdown("---")
+        
+        st.markdown("---")
 
-            count = 0
-            for item in recipe_list:
-                title_tag = item.select_one('div.common_sp_caption_tit')
-                link_tag = item.select_one('a.common_sp_link')
-                
-                if title_tag and link_tag:
-                    title = title_tag.get_text().strip()
-                    link = site_root + link_tag['href']
-                    
-                    # 필터링 로직
-                    is_safe = True
-                    for word in condition['avoid']:
-                        if word in title:
-                            is_safe = False
-                            break
-                    
-                    if is_safe:
-                        st.success(f"✅ **[추천 레시피] {title}**")
-                        st.markdown(f"🔗 [레시피 보러 가기]({link})")
-                        st.markdown("---")
-                        count += 1
-                        
-                        if count >= 3: 
-                            break 
+        count = 0
+        for item in recipe_list:
+            title_tag = item.select_one('div.common_sp_caption_tit')
+            link_tag = item.select_one('a.common_sp_link')
             
-            if count == 0:
-                st.warning("현재 조건에 딱 맞는 안전한 레시피를 찾지 못했어요. 검색어를 살짝 바꿔보세요!")
+            if title_tag and link_tag:
+                title = title_tag.get_text().strip()
+                link = site_root + link_tag['href']
+                
+                # 필터링 로직
+                is_safe = True
+                for word in condition['avoid']:
+                    if word in title:
+                        is_safe = False
+                        break
+                
+                if is_safe:
+                    st.success(f"✅ **[추천 레시피] {title}**")
+                    st.markdown(f"🔗 [레시피 보러 가기]({link})")
+                    st.markdown("---")
+                    count += 1
+                    
+                    if count >= 3: 
+                        break 
+        
+        if count == 0:
+            st.warning("현재 조건에 딱 맞는 안전한 레시피를 찾지 못했어요. 검색어를 살짝 바꿔보세요!")
 
-        except Exception as e:
-            st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
+    except Exception as e:
+        st.error(f"데이터를 불러오는 중 오류가 발생했습니다: {e}")
